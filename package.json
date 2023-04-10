@@ -1,0 +1,17 @@
+{
+  "name": "packpull",
+  "version": "1.0.41",
+  "description": "",
+  "bin": {
+    "packpull": "./bringin.js",
+    "packpull-revert": "./bringout.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {},
+  "dependencies": {
+    "fs-extra": "^11.1.1",
+    "json-converters": "^1.0.1"
+  }
+}
