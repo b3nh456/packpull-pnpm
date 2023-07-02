@@ -56,7 +56,7 @@ async function go() {
 
     const rootPackageJson = parse(await fs.readFile(rootPackagePath));
 
-    const localDependencies = await bringIn(process.cwd(), path.dirname(rootPackagePath), rootPackageJson, 0, `${process.cwd()}/local-packages/`)
+    const localDependencies = await bringIn(process.cwd(), path.dirname(rootPackagePath), rootPackageJson, 0, `${process.cwd()}/local-packages`)
 
     // Save the local file dependencies to json so can be rewritten after
     await fs.writeFile(`${process.cwd()}/local-dependency-map.json`, stringify(localDependencies));
@@ -201,7 +201,7 @@ async function copyIntoPackage(pasteLocation, dependencyPaths){
 
         const directory = dependencyPaths.get(depName)
 
-        await fs.copy(directory, pasteLocation);
+        await fs.copy(directory, `${pasteLocation}/${depName}`);
     }
 }
 
