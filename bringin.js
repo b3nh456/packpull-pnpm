@@ -95,7 +95,7 @@ async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recurs
     ////// RECURSE
     for (var depName of [...localDependencies.keys()]){
 
-        await bringIn(`${pasteLocation}/local-packages/${nameNoSlash(depName)}`, rootPackageDir, rootPackageJson, recursionDepth+1, pasteLocation)
+        await bringIn(`${pasteLocation}/${nameNoSlash(depName)}`, rootPackageDir, rootPackageJson, recursionDepth+1, pasteLocation)
     }
 
     return localDependencies
