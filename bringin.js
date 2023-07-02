@@ -12,14 +12,9 @@ const MAX_RECURSION_DEPTH = 8 //safety feature incase get circular dependencies 
 // --isRoot argument to specify command is being called from the root package
 //
 // PRE REQUISITES
-// -root json has to explicitly lay out every package directory, cba handling "*" or "**" atm
-// -Will copy packages even if package is a child
+// -Root json has to explicitly lay out every package directory, cba handling "*" or "**" atm
+// -Each package has to already be built to a directory called 'build'
 //
-// -RECURSION IS DUMN:
-//   -Any CIRCULAR DEPENDENCIES WILL CAUSE ISSUES
-//   -Will copy local packages inside local package even if that was already copied on previous level of recursion
-
-// TO DO:
 
 
 ////SET UP AND GO
@@ -88,7 +83,7 @@ async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recurs
     /////// REWRITE PACKAGE JSON 
     await rewritePackageJson(targetPackageDir, targetPackageJson, [...localDependencies.keys()], !recursionDepth)
 
-    
+
     for (var depName of [...localDependencyPaths.keys()]) {
 
         if(alreadyCopied.includes(depName)){
@@ -97,7 +92,9 @@ async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recurs
         
          ///// COPY INTO PACKAGE
         alreadyCopied.push(depName)
-        await fs.copy(localDependencyPaths.get(depName), `${pasteLocation}/${nameNoSlash(depName)}`);
+        // only copy package.json and build
+        await fs.copy(`${localDependencyPaths.get(depName)}/package.json`, `${pasteLocation}/${nameNoSlash(depName)}/package.json`);
+        await fs.copy(`${localDependencyPaths.get(depName)}/build`, `${pasteLocation}/${nameNoSlash(depName)}/build`);
 
         ////// RECURSE
 
