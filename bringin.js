@@ -19,6 +19,8 @@ const MAX_RECURSION_DEPTH = 8 //safety feature incase get circular dependencies 
 //   -Any CIRCULAR DEPENDENCIES WILL CAUSE ISSUES
 //   -Will copy local packages inside local package even if that was already copied on previous level of recursion
 
+// TO DO:
+
 
 ////SET UP AND GO
 go()
@@ -54,7 +56,7 @@ async function go() {
 
     const rootPackageJson = parse(await fs.readFile(rootPackagePath));
 
-    const localDependencies = await bringIn(process.cwd(), path.dirname(rootPackagePath), rootPackageJson, 0)
+    const localDependencies = await bringIn(process.cwd(), path.dirname(rootPackagePath), rootPackageJson, 0, `${process.cwd()}/local-packages/`)
 
     // Save the local file dependencies to json so can be rewritten after
     await fs.writeFile(`${process.cwd()}/local-dependency-map.json`, stringify(localDependencies));
@@ -63,7 +65,7 @@ async function go() {
 ////////////
 /// THE RECURSIVE FUNCTION
 ///////////////
-async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recursionDepth) {
+async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recursionDepth, pasteLocation) {
 
     const targetPackageJsonPath =  `${targetPackageDir}/package.json`;
     const targetPackageJson = parse(await fs.readFile(targetPackageJsonPath));
@@ -84,11 +86,11 @@ async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recurs
 
 
     ///// COPY INTO PACKAGE
-    await copyIntoPackage(targetPackageDir, localDependencyPaths)
+    await copyIntoPackage(pasteLocation, localDependencyPaths)
 
 
     /////// REWRITE PACKAGE JSON 
-    await rewritePackageJson(targetPackageDir, targetPackageJson, [...localDependencies.keys()])
+    await rewritePackageJson(targetPackageDir, targetPackageJson, [...localDependencies.keys()], !recursionDepth)
 
     ////// RECURSE
     for (var depName of [...localDependencies.keys()]){
@@ -193,20 +195,27 @@ async function findLocalDependencyPaths(localDependencyNames, rootDir, workspace
     return localDependencyPaths
 }
 
-async function copyIntoPackage(packageDirectory, dependencyPaths){
+async function copyIntoPackage(pasteLocation, dependencyPaths){
 
     for (var depName of dependencyPaths.keys()){
 
         const directory = dependencyPaths.get(depName)
 
-        await fs.copy(directory, `${packageDirectory}/local-packages/${depName}`);
+        await fs.copy(directory, pasteLocation);
     }
 }
 
-async function rewritePackageJson(packageDirectory, packageJson, dependencyNames){
+/**
+ * 
+ * @param {*} packageDirectory 
+ * @param {*} packageJson 
+ * @param {*} dependencyNames 
+ * @param {*} intarget if in the targets package.json location of package will be './local-package', else will be  '../'
+ */
+async function rewritePackageJson(packageDirectory, packageJson, dependencyNames, intarget=false){
 
     for (var depName of dependencyNames){
-        packageJson.dependencies[depName] = `file:./local-packages/${depName}`
+        packageJson.dependencies[depName] =  intarget ? `file:./local-packages/${depName}` : `file:../${depName}`
     }
     // Re-Write the package.json
     await fs.writeFile(packageDirectory+"/package.json", JSON.stringify(packageJson, null, 2));
