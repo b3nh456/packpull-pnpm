@@ -33,7 +33,7 @@ async function go() {
 
     //console.log("\nCurrent Working Directory:", process.cwd())
 
-    const packageJsonPath =  `${process.cwd()}/package.json`;
+    const packageJsonPath = `${process.cwd()}/package.json`;
     const packageJson = parse(await fs.readFile(packageJsonPath));
 
     ///////// GET ROOT PACKAGE NAME
@@ -42,14 +42,14 @@ async function go() {
     ///////// GET ROOT PACKAGE PATH
     let rootPackagePath = ""
 
-    if(args[2] == "--isRoot"){
+    if (args[2] == "--isRoot") {
         rootPackagePath = process.cwd() + "/package.json"
     }
-    else{
+    else {
         rootPackagePath = await findRootPackagePath(process.cwd(), rootPackageName);
     }
 
-    if(!rootPackagePath){throw Error('Could Not Find Root package.json')}
+    if (!rootPackagePath) { throw Error('Could Not Find Root package.json') }
 
     console.log(`\nRoot Package "${rootPackageName}" Found!`)
     //console.log(`\n${path.dirname(rootPackagePath)}`)
@@ -65,17 +65,17 @@ async function go() {
 ////////////
 /// THE RECURSIVE FUNCTION
 ///////////////
-async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recursionDepth, pasteLocation) {
+async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recursionDepth, pasteLocation, alreadyCopied = []) {
 
-    const targetPackageJsonPath =  `${targetPackageDir}/package.json`;
+    const targetPackageJsonPath = `${targetPackageDir}/package.json`;
     const targetPackageJson = parse(await fs.readFile(targetPackageJsonPath));
 
     ////// GET LOCAL DEPENDENCIES
     const localDependencies = await getLocalDependencies(targetPackageDir, rootPackageJson.name);
 
     //
-    if(![...localDependencies.keys()].length){return}
-    if(recursionDepth >= MAX_RECURSION_DEPTH){throw Error(`Max recursion depth of ${MAX_RECURSION_DEPTH} reached bring in ${targetPackageJson.name}`)}
+    if (![...localDependencies.keys()].length) { return }
+    if (recursionDepth >= MAX_RECURSION_DEPTH) { throw Error(`Max recursion depth of ${MAX_RECURSION_DEPTH} reached bring in ${targetPackageJson.name}`) }
 
 
     ////// FIND LOCAL DEPENDENCY PACKAGES
@@ -85,17 +85,23 @@ async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recurs
     console.log(localDependencyPaths)
 
 
-    ///// COPY INTO PACKAGE
-    await copyIntoPackage(pasteLocation, localDependencyPaths)
-
-
     /////// REWRITE PACKAGE JSON 
     await rewritePackageJson(targetPackageDir, targetPackageJson, [...localDependencies.keys()], !recursionDepth)
 
-    ////// RECURSE
-    for (var depName of [...localDependencies.keys()]){
+    
+    for (var depName of [...localDependencyPaths.keys()]) {
 
-        await bringIn(`${pasteLocation}/${nameNoSlash(depName)}`, rootPackageDir, rootPackageJson, recursionDepth+1, pasteLocation)
+        if(alreadyCopied.includes(depName)){
+            continue
+        }
+        
+         ///// COPY INTO PACKAGE
+        alreadyCopied.push(depName)
+        await fs.copy(localDependencyPaths.get(depName), `${pasteLocation}/${nameNoSlash(depName)}`);
+
+        ////// RECURSE
+
+        await bringIn(`${pasteLocation}/${nameNoSlash(depName)}`, rootPackageDir, rootPackageJson, recursionDepth + 1, pasteLocation, alreadyCopied)
     }
 
     return localDependencies
@@ -105,12 +111,12 @@ async function bringIn(targetPackageDir, rootPackageDir, rootPackageJson, recurs
 /////////
 // HELPER FUNCTIONS 
 ///////
-function getRootPackageName(packageJson){
- 
+function getRootPackageName(packageJson) {
+
     const slashIndex = packageJson.name.indexOf("/")
 
-    if(packageJson.name[0] !== "@" || slashIndex === -1){
-        
+    if (packageJson.name[0] !== "@" || slashIndex === -1) {
+
         throw Error('Package name does not follow npm workspace monorepo naming convention \nPackage name must be formatted as @rootname/subname')
     }
 
@@ -119,23 +125,23 @@ function getRootPackageName(packageJson){
     return rootPackageName
 }
 
-async function findRootPackagePath(packageDirectory, rootPackageName){
+async function findRootPackagePath(packageDirectory, rootPackageName) {
 
     const maxDepthSearch = 6;
 
     for (let i = 1; i < maxDepthSearch; i++) {
         const directory = packageDirectory + "/..".repeat(i) + "/package.json"
-        try{
+        try {
             const packJson = parse(await fs.readFile(directory))
 
-            if(packJson.name===rootPackageName){
+            if (packJson.name === rootPackageName) {
                 return path.resolve(directory)
             }
         }
-        catch{
+        catch {
             continue
         }
-      }
+    }
 }
 
 /**
@@ -144,20 +150,20 @@ async function findRootPackagePath(packageDirectory, rootPackageName){
  * @param {*} rootPackageName name of the monorepos root name (without @)
  * @returns 
  */
-async function getLocalDependencies(packageDirectory, rootPackageName){
+async function getLocalDependencies(packageDirectory, rootPackageName) {
 
-    const packageJsonPath =  `${packageDirectory}/package.json`;
+    const packageJsonPath = `${packageDirectory}/package.json`;
     const packageJson = parse(await fs.readFile(packageJsonPath));
 
     const localDependencies = new Map()
 
-    const rootNameSubStr = "@"+rootPackageName
+    const rootNameSubStr = "@" + rootPackageName
     const rootNameSubLen = rootNameSubStr.length
 
-    for (var depName in packageJson.dependencies){
+    for (var depName in packageJson.dependencies) {
         const version = packageJson.dependencies[depName]
 
-        if(depName.substring(0,rootNameSubLen) === rootNameSubStr){
+        if (depName.substring(0, rootNameSubLen) === rootNameSubStr) {
             localDependencies.set(depName, version)
         }
     }
@@ -165,33 +171,33 @@ async function getLocalDependencies(packageDirectory, rootPackageName){
     return localDependencies
 }
 
-async function findLocalDependencyPaths(localDependencyNames, rootDir, workspaces){
+async function findLocalDependencyPaths(localDependencyNames, rootDir, workspaces) {
 
     const localDependencyPaths = new Map()
 
     const workspacePaths = workspaces.map(ws => path.resolve(rootDir, ws))
 
-    for (var depName of localDependencyNames){
+    for (var depName of localDependencyNames) {
 
         let dependencyDir = ""
 
-        for (var workspacePath of workspacePaths){
+        for (var workspacePath of workspacePaths) {
 
             const packageJsonPath = workspacePath + "/package.json"
-            try{
+            try {
                 const packJson = parse(await fs.readFile(packageJsonPath))
-    
-                if(packJson.name===depName){
+
+                if (packJson.name === depName) {
                     dependencyDir = workspacePath
                     break
                 }
             }
-            catch{
+            catch {
                 continue
             }
         }
 
-        if(!dependencyDir){
+        if (!dependencyDir) {
             throw Error(`Could Not Find Directory of ${depName}`)
         }
 
@@ -201,15 +207,6 @@ async function findLocalDependencyPaths(localDependencyNames, rootDir, workspace
     return localDependencyPaths
 }
 
-async function copyIntoPackage(pasteLocation, dependencyPaths){
-
-    for (var depName of dependencyPaths.keys()){
-
-        const directory = dependencyPaths.get(depName)
-
-        await fs.copy(directory, `${pasteLocation}/${nameNoSlash(depName)}`);
-    }
-}
 
 /**
  * 
@@ -218,18 +215,18 @@ async function copyIntoPackage(pasteLocation, dependencyPaths){
  * @param {*} dependencyNames 
  * @param {*} intarget if in the targets package.json location of package will be './local-package', else will be  '../'
  */
-async function rewritePackageJson(packageDirectory, packageJson, dependencyNames, intarget=false){
+async function rewritePackageJson(packageDirectory, packageJson, dependencyNames, intarget = false) {
 
-    for (var depName of dependencyNames){
-        packageJson.dependencies[depName] =  intarget ? `file:./local-packages/${nameNoSlash(depName)}` : `file:../${nameNoSlash(depName)}`
+    for (var depName of dependencyNames) {
+        packageJson.dependencies[depName] = intarget ? `file:./local-packages/${nameNoSlash(depName)}` : `file:../${nameNoSlash(depName)}`
     }
     // Re-Write the package.json
-    await fs.writeFile(packageDirectory+"/package.json", JSON.stringify(packageJson, null, 2));
+    await fs.writeFile(packageDirectory + "/package.json", JSON.stringify(packageJson, null, 2));
 }
 
 
 
-function nameNoSlash(name){
+function nameNoSlash(name) {
     const parts = name.split("/")
-    return [parts[parts.length-1]]
+    return [parts[parts.length - 1]]
 }
