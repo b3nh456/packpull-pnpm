@@ -138,6 +138,12 @@ async function findRootPackagePath(packageDirectory, rootPackageName){
       }
 }
 
+/**
+ * 
+ * @param {*} packageDirectory directory we want to get local dependecnies from
+ * @param {*} rootPackageName name of the monorepos root name (without @)
+ * @returns 
+ */
 async function getLocalDependencies(packageDirectory, rootPackageName){
 
     const packageJsonPath =  `${packageDirectory}/package.json`;
@@ -201,7 +207,7 @@ async function copyIntoPackage(pasteLocation, dependencyPaths){
 
         const directory = dependencyPaths.get(depName)
 
-        await fs.copy(directory, `${pasteLocation}/${depName}`);
+        await fs.copy(directory, `${pasteLocation}/${nameNoSlash(depName)}`);
     }
 }
 
@@ -215,7 +221,7 @@ async function copyIntoPackage(pasteLocation, dependencyPaths){
 async function rewritePackageJson(packageDirectory, packageJson, dependencyNames, intarget=false){
 
     for (var depName of dependencyNames){
-        packageJson.dependencies[depName] =  intarget ? `file:./local-packages/${depName}` : `file:../${depName}`
+        packageJson.dependencies[depName] =  intarget ? `file:./local-packages/${nameNoSlash(depName)}` : `file:../${nameNoSlash(depName)}`
     }
     // Re-Write the package.json
     await fs.writeFile(packageDirectory+"/package.json", JSON.stringify(packageJson, null, 2));
@@ -223,27 +229,7 @@ async function rewritePackageJson(packageDirectory, packageJson, dependencyNames
 
 
 
-
-//THIS IS ALREADY A FUNCTION ON PATH U MUPPET
-// Recursively Removes unneccesary "..\" from filepath 
-// only configured to work with backslashes
-function resolvePath(path){
-
-    // Get first occurence of dotdotback thing
-    const backIndex = path.indexOf("..\\")
-
-    // This gets the index of all the slashes ("/") that are below the back index ("../")
-    // "\\\\" is need for regex for some reason
-    const slashesBelow = [...path.matchAll("\\\\")].map(x=>x.index).filter(x=>x<backIndex)
-
-    if(!backIndex || slashesBelow.length < 2){
-        return path
-    }
-
-    const removeStart = slashesBelow[slashesBelow.length-2] + 1
-    const removeEnd = backIndex + 3
-
-    const newPath = path.substring(0,removeStart)+ path.substring(removeEnd)
-
-    return resolvePath(newPath)
+function nameNoSlash(name){
+    const parts = name.split("/")
+    return [parts[parts.length-1]]
 }
